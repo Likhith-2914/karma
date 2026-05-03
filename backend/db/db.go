@@ -3,15 +3,24 @@ package db
 import (
 	"database/sql"
 	"log"
+	"os"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/lib/pq"
 )
 
 var DB *sql.DB
 
 func InitDB() {
 	var err error
-	DB, err = sql.Open("sqlite3", "./karma.db")
+	
+	dbUrl := os.Getenv("DATABASE_URL")
+	if dbUrl == "" {
+		// Fallback for local development if needed, though you should export DATABASE_URL locally
+		dbUrl = "postgres://postgres:postgres@localhost:5432/karma?sslmode=disable"
+		log.Println("DATABASE_URL not set, using default local postgres url")
+	}
+
+	DB, err = sql.Open("postgres", dbUrl)
 	if err != nil {
 		log.Fatalf("Failed to open database: %v", err)
 	}
@@ -26,7 +35,7 @@ func InitDB() {
 func createTables() {
 	userTable := `
 	CREATE TABLE IF NOT EXISTS users (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		id SERIAL PRIMARY KEY,
 		email TEXT UNIQUE NOT NULL,
 		password_hash TEXT NOT NULL,
 		name TEXT NOT NULL,
@@ -35,15 +44,15 @@ func createTables() {
 
 	projectTable := `
 	CREATE TABLE IF NOT EXISTS projects (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		id SERIAL PRIMARY KEY,
 		name TEXT NOT NULL,
 		user_id INTEGER,
-		FOREIGN KEY(user_id) REFERENCES users(id)
+		FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 	);`
 
 	taskTable := `
 	CREATE TABLE IF NOT EXISTS tasks (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		id SERIAL PRIMARY KEY,
 		title TEXT NOT NULL,
 		description TEXT,
 		status TEXT NOT NULL,
@@ -51,8 +60,8 @@ func createTables() {
 		due_date TEXT,
 		project_id INTEGER,
 		user_id INTEGER,
-		FOREIGN KEY(project_id) REFERENCES projects(id),
-		FOREIGN KEY(user_id) REFERENCES users(id)
+		FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE SET NULL,
+		FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 	);`
 
 	if _, err := DB.Exec(userTable); err != nil {
@@ -64,11 +73,6 @@ func createTables() {
 	if _, err := DB.Exec(taskTable); err != nil {
 		log.Fatalf("Failed to create tasks table: %v", err)
 	}
-
-	// Safety check: if the table was already created in a previous run without due_date,
-	// this will add it. We ignore the error because it fails safely if the column exists.
-	DB.Exec("ALTER TABLE tasks ADD COLUMN due_date TEXT")
-	DB.Exec("ALTER TABLE users ADD COLUMN theme TEXT DEFAULT 'dark'")
 
 	log.Println("Database tables initialized successfully")
 }

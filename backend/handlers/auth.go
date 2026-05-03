@@ -42,7 +42,7 @@ func SignupHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 3. Insert into Database
-	_, err = db.DB.Exec("INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)", creds.Email, string(hashedPassword), creds.Name)
+	_, err = db.DB.Exec("INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3)", creds.Email, string(hashedPassword), creds.Name)
 	if err != nil {
 		// Usually fails here if the email UNIQUE constraint is violated
 		http.Error(w, "Email already exists or database error", http.StatusConflict)
@@ -66,7 +66,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	// 2. Query the user by email from the DB
 	var user models.User
 	var theme sql.NullString
-	row := db.DB.QueryRow("SELECT id, email, password_hash, name, theme FROM users WHERE email = ?", creds.Email)
+	row := db.DB.QueryRow("SELECT id, email, password_hash, name, theme FROM users WHERE email = $1", creds.Email)
 	
 	// Scan copies the columns from the matched row into our user struct variables
 	err := row.Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Name, &theme)
@@ -133,7 +133,7 @@ func UpdateThemeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := db.DB.Exec("UPDATE users SET theme = ? WHERE id = ?", payload.Theme, userID)
+	_, err := db.DB.Exec("UPDATE users SET theme = $1 WHERE id = $2", payload.Theme, userID)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return

@@ -18,7 +18,7 @@ func GetProjectsHandler(w http.ResponseWriter, r *http.Request) {
 	userID, _ := strconv.Atoi(userIDStr)
 
 	// Query the database
-	rows, err := db.DB.Query("SELECT id, name, user_id FROM projects WHERE user_id = ?", userID)
+	rows, err := db.DB.Query("SELECT id, name, user_id FROM projects WHERE user_id = $1", userID)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
@@ -54,16 +54,15 @@ func CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Execute the INSERT statement
-	result, err := db.DB.Exec("INSERT INTO projects (name, user_id) VALUES (?, ?)", p.Name, userID)
+	// Execute the INSERT statement and get the returned ID
+	var id int
+	err := db.DB.QueryRow("INSERT INTO projects (name, user_id) VALUES ($1, $2) RETURNING id", p.Name, userID).Scan(&id)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
 
-	// Get the ID of the newly inserted row
-	id, _ := result.LastInsertId()
-	p.ID = int(id)
+	p.ID = id
 	p.UserID = userID
 
 	w.Header().Set("Content-Type", "application/json")
@@ -85,7 +84,7 @@ func DeleteProjectHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete tasks associated with the project
-	_, err = tx.Exec("DELETE FROM tasks WHERE project_id = ? AND user_id = ?", projectID, userID)
+	_, err = tx.Exec("DELETE FROM tasks WHERE project_id = $1 AND user_id = $2", projectID, userID)
 	if err != nil {
 		tx.Rollback()
 		http.Error(w, "Failed to delete associated tasks", http.StatusInternalServerError)
@@ -93,7 +92,7 @@ func DeleteProjectHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete the project itself
-	_, err = tx.Exec("DELETE FROM projects WHERE id = ? AND user_id = ?", projectID, userID)
+	_, err = tx.Exec("DELETE FROM projects WHERE id = $1 AND user_id = $2", projectID, userID)
 	if err != nil {
 		tx.Rollback()
 		http.Error(w, "Failed to delete project", http.StatusInternalServerError)

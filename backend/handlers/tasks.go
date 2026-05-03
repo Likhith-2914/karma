@@ -18,7 +18,7 @@ func GetAllTasksHandler(w http.ResponseWriter, r *http.Request) {
 	userIDStr := r.Context().Value("userID").(string)
 	userID, _ := strconv.Atoi(userIDStr)
 
-	rows, err := db.DB.Query("SELECT id, title, description, status, story_points, due_date, project_id, user_id FROM tasks WHERE user_id = ?", userID)
+	rows, err := db.DB.Query("SELECT id, title, description, status, story_points, due_date, project_id, user_id FROM tasks WHERE user_id = $1", userID)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
@@ -52,7 +52,7 @@ func GetTasksHandler(w http.ResponseWriter, r *http.Request) {
 	userID, _ := strconv.Atoi(userIDStr)
 	projectID := chi.URLParam(r, "projectID")
 
-	rows, err := db.DB.Query("SELECT id, title, description, status, story_points, due_date, project_id, user_id FROM tasks WHERE project_id = ? AND user_id = ?", projectID, userID)
+	rows, err := db.DB.Query("SELECT id, title, description, status, story_points, due_date, project_id, user_id FROM tasks WHERE project_id = $1 AND user_id = $2", projectID, userID)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
@@ -99,17 +99,18 @@ func CreateTaskHandler(w http.ResponseWriter, r *http.Request) {
 		t.DueDate = time.Now().Format("2006-01-02")
 	}
 
-	result, err := db.DB.Exec(
-		"INSERT INTO tasks (title, description, status, story_points, due_date, project_id, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+	var id int
+	err := db.DB.QueryRow(
+		"INSERT INTO tasks (title, description, status, story_points, due_date, project_id, user_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
 		t.Title, t.Description, t.Status, t.StoryPoints, t.DueDate, t.ProjectID, userID,
-	)
+	).Scan(&id)
+	
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
 
-	id, _ := result.LastInsertId()
-	t.ID = int(id)
+	t.ID = id
 	t.UserID = userID
 
 	w.Header().Set("Content-Type", "application/json")
@@ -131,7 +132,7 @@ func UpdateTaskStatusHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := db.DB.Exec("UPDATE tasks SET status = ? WHERE id = ? AND user_id = ?", payload.Status, taskID, userID)
+	_, err := db.DB.Exec("UPDATE tasks SET status = $1 WHERE id = $2 AND user_id = $3", payload.Status, taskID, userID)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
@@ -162,7 +163,7 @@ func UpdateTaskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err := db.DB.Exec(
-		"UPDATE tasks SET title = ?, description = ?, status = ?, story_points = ?, due_date = ?, project_id = ? WHERE id = ? AND user_id = ?",
+		"UPDATE tasks SET title = $1, description = $2, status = $3, story_points = $4, due_date = $5, project_id = $6 WHERE id = $7 AND user_id = $8",
 		t.Title, t.Description, t.Status, t.StoryPoints, t.DueDate, t.ProjectID, taskID, userID,
 	)
 	if err != nil {
@@ -181,7 +182,7 @@ func DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 	userID, _ := strconv.Atoi(userIDStr)
 	taskID := chi.URLParam(r, "taskID")
 
-	_, err := db.DB.Exec("DELETE FROM tasks WHERE id = ? AND user_id = ?", taskID, userID)
+	_, err := db.DB.Exec("DELETE FROM tasks WHERE id = $1 AND user_id = $2", taskID, userID)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
