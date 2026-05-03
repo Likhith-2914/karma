@@ -1,0 +1,5 @@
+# .gitignore
+frontend/node_modules/
+backend/karma.db
+frontend/dist/
+.env
