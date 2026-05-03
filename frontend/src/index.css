@@ -531,6 +531,24 @@ body {
   z-index: 1000;
 }
 
+.auth-card {
+  background-color: var(--bg-card);
+  padding: 3rem;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.app-logo-large {
+  width: 56px;
+  height: 56px;
+  margin-bottom: 0.5rem;
+}
+
 .modal-content {
   background-color: var(--bg-secondary);
   padding: 2rem;
