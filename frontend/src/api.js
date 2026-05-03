@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Automatically route to '/api' in production (Nginx proxy), but use localhost in local dev
-const API_URL = import.meta.env.MODE === 'production' ? '/api' : 'http://localhost:8080/api';
+// Use VITE_API_URL if it exists (for Vercel), otherwise fallback to localhost (for local dev)
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
 // Create an Axios instance
 const api = axios.create({
