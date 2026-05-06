@@ -9,6 +9,7 @@ const TaskModal = ({ isOpen, onClose, task, projects, onSave }) => {
   const [storyPoints, setStoryPoints] = useState(0);
   const [dueDate, setDueDate] = useState('');
   const [projectId, setProjectId] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (task) {
@@ -34,6 +35,7 @@ const TaskModal = ({ isOpen, onClose, task, projects, onSave }) => {
     e.preventDefault();
     if (!title.trim()) return;
 
+    setIsSubmitting(true);
     const payload = {
       title,
       description,
@@ -56,6 +58,8 @@ const TaskModal = ({ isOpen, onClose, task, projects, onSave }) => {
       onClose();
     } catch (err) {
       console.error('Failed to save task', err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -134,7 +138,9 @@ const TaskModal = ({ isOpen, onClose, task, projects, onSave }) => {
             )}
             <div style={{ display: 'flex', gap: '1rem' }}>
               <button type="button" onClick={onClose} className="text-btn">Cancel</button>
-              <button type="submit" className="primary-btn btn-small">Save Task</button>
+              <button type="submit" className="primary-btn btn-small" disabled={isSubmitting}>
+                {isSubmitting ? 'Saving...' : 'Save Task'}
+              </button>
             </div>
           </div>
         </form>
