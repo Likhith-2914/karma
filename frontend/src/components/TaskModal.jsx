@@ -10,6 +10,7 @@ const TaskModal = ({ isOpen, onClose, task, projects, onSave }) => {
   const [dueDate, setDueDate] = useState('');
   const [projectId, setProjectId] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (task) {
@@ -27,6 +28,7 @@ const TaskModal = ({ isOpen, onClose, task, projects, onSave }) => {
       setDueDate(new Date().toISOString().split('T')[0]);
       setProjectId(0);
     }
+    setError(null);
   }, [task, isOpen]);
 
   if (!isOpen) return null;
@@ -36,6 +38,7 @@ const TaskModal = ({ isOpen, onClose, task, projects, onSave }) => {
     if (!title.trim()) return;
 
     setIsSubmitting(true);
+    setError(null);
     const payload = {
       title,
       description,
@@ -55,11 +58,12 @@ const TaskModal = ({ isOpen, onClose, task, projects, onSave }) => {
         const res = await api.post('/tasks', payload);
         onSave(res.data);
       }
+      setIsSubmitting(false);
       onClose();
     } catch (err) {
       console.error('Failed to save task', err);
-    } finally {
-      setIsSubmitting(false);
+      setError(err.response?.data?.message || err.message || 'Network error or timeout. Please try again.');
+      setIsSubmitting(false); // Stop loading so user can retry, but show error
     }
   };
 
@@ -85,6 +89,12 @@ const TaskModal = ({ isOpen, onClose, task, projects, onSave }) => {
           <button onClick={onClose} className="icon-btn"><X size={20} /></button>
         </div>
         
+        {error && (
+          <div style={{ padding: '0.5rem 1rem', background: 'var(--danger)', color: 'white', borderRadius: '4px', margin: '0 1rem', fontSize: '0.9rem' }}>
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="modal-form">
           <div className="form-group">
             <label>Title</label>
