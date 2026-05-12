@@ -29,11 +29,17 @@ func GetAllTasksHandler(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var t models.Task
 		var dueDate sql.NullString
-		if err := rows.Scan(&t.ID, &t.Title, &t.Description, &t.Status, &t.StoryPoints, &dueDate, &t.ProjectID, &t.UserID); err != nil {
+		var projectID sql.NullInt64
+		if err := rows.Scan(&t.ID, &t.Title, &t.Description, &t.Status, &t.StoryPoints, &dueDate, &projectID, &t.UserID); err != nil {
 			continue
 		}
 		if dueDate.Valid {
 			t.DueDate = dueDate.String
+		}
+		if projectID.Valid {
+			t.ProjectID = int(projectID.Int64)
+		} else {
+			t.ProjectID = 0
 		}
 		tasks = append(tasks, t)
 	}
@@ -63,11 +69,17 @@ func GetTasksHandler(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var t models.Task
 		var dueDate sql.NullString
-		if err := rows.Scan(&t.ID, &t.Title, &t.Description, &t.Status, &t.StoryPoints, &dueDate, &t.ProjectID, &t.UserID); err != nil {
+		var projectID sql.NullInt64
+		if err := rows.Scan(&t.ID, &t.Title, &t.Description, &t.Status, &t.StoryPoints, &dueDate, &projectID, &t.UserID); err != nil {
 			continue
 		}
 		if dueDate.Valid {
 			t.DueDate = dueDate.String
+		}
+		if projectID.Valid {
+			t.ProjectID = int(projectID.Int64)
+		} else {
+			t.ProjectID = 0
 		}
 		tasks = append(tasks, t)
 	}
@@ -99,10 +111,15 @@ func CreateTaskHandler(w http.ResponseWriter, r *http.Request) {
 		t.DueDate = time.Now().Format("2006-01-02")
 	}
 
+	var dbProjectID interface{} = t.ProjectID
+	if t.ProjectID == 0 {
+		dbProjectID = nil
+	}
+
 	var id int
 	err := db.DB.QueryRow(
 		"INSERT INTO tasks (title, description, status, story_points, due_date, project_id, user_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
-		t.Title, t.Description, t.Status, t.StoryPoints, t.DueDate, t.ProjectID, userID,
+		t.Title, t.Description, t.Status, t.StoryPoints, t.DueDate, dbProjectID, userID,
 	).Scan(&id)
 	
 	if err != nil {
@@ -162,9 +179,14 @@ func UpdateTaskHandler(w http.ResponseWriter, r *http.Request) {
 		t.DueDate = time.Now().Format("2006-01-02")
 	}
 
+	var dbProjectID interface{} = t.ProjectID
+	if t.ProjectID == 0 {
+		dbProjectID = nil
+	}
+
 	_, err := db.DB.Exec(
 		"UPDATE tasks SET title = $1, description = $2, status = $3, story_points = $4, due_date = $5, project_id = $6 WHERE id = $7 AND user_id = $8",
-		t.Title, t.Description, t.Status, t.StoryPoints, t.DueDate, t.ProjectID, taskID, userID,
+		t.Title, t.Description, t.Status, t.StoryPoints, t.DueDate, dbProjectID, taskID, userID,
 	)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
