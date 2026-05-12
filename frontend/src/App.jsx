@@ -4,6 +4,8 @@ import Auth from './components/Auth';
 // We will build Dashboard next
 import Dashboard from './components/Dashboard';
 
+import { FullPageLoader } from './components/Loader';
+
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -21,7 +23,7 @@ function App() {
     setLoading(false);
   }, []);
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <FullPageLoader text="Loading Karma..." />;
 
   return (
     <Router>

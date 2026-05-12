@@ -4,6 +4,7 @@ import { LogOut, Plus, Trello, CalendarDays, LayoutDashboard, Moon, Sun, Trash2,
 import api from '../api';
 import Board from './Board';
 import TaskModal from './TaskModal';
+import { Spinner } from './Loader';
 
 const Dashboard = ({ setAuth }) => {
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
@@ -14,6 +15,8 @@ const Dashboard = ({ setAuth }) => {
   const [activeProjectIds, setActiveProjectIds] = useState([]);
   const [newProjectName, setNewProjectName] = useState('');
   const [isCreatingProject, setIsCreatingProject] = useState(false);
+  const [isFetchingProjects, setIsFetchingProjects] = useState(false);
+  const [isCreatingProjectLoading, setIsCreatingProjectLoading] = useState(false);
   const [viewMode, setViewMode] = useState('weekly'); // 'weekly', 'global', 'backlog', 'project'
   const navigate = useNavigate();
 
@@ -22,18 +25,22 @@ const Dashboard = ({ setAuth }) => {
   }, []);
 
   const fetchProjects = async () => {
+    setIsFetchingProjects(true);
     try {
       const res = await api.get('/projects');
       setProjects(res.data || []);
     } catch (err) {
       console.error('Failed to fetch projects', err);
       if (err.response?.status === 401) handleLogout();
+    } finally {
+      setIsFetchingProjects(false);
     }
   };
 
   const handleCreateProject = async (e) => {
     e.preventDefault();
     if (!newProjectName.trim()) return;
+    setIsCreatingProjectLoading(true);
     try {
       const res = await api.post('/projects', { name: newProjectName });
       setProjects([...projects, res.data]);
@@ -43,6 +50,8 @@ const Dashboard = ({ setAuth }) => {
       setViewMode('project');
     } catch (err) {
       console.error('Failed to create project', err);
+    } finally {
+      setIsCreatingProjectLoading(false);
     }
   };
 
@@ -159,7 +168,9 @@ const Dashboard = ({ setAuth }) => {
         </div>
 
         <ul className="project-list">
-          <li className="list-heading">FILTER BY PROJECT</li>
+          <li className="list-heading" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            FILTER BY PROJECT {isFetchingProjects && <Spinner size={12} />}
+          </li>
           {projects.map(p => (
             <li 
               key={p.id} 
@@ -177,7 +188,7 @@ const Dashboard = ({ setAuth }) => {
           ))}
           
           {isCreatingProject ? (
-            <form onSubmit={handleCreateProject} style={{ padding: '0 1rem' }}>
+            <form onSubmit={handleCreateProject} style={{ padding: '0 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <input 
                 type="text" 
                 value={newProjectName} 
@@ -186,7 +197,9 @@ const Dashboard = ({ setAuth }) => {
                 autoFocus
                 onBlur={() => {if(!newProjectName) setIsCreatingProject(false);}}
                 className="inline-input"
+                disabled={isCreatingProjectLoading}
               />
+              {isCreatingProjectLoading && <Spinner size={14} />}
             </form>
           ) : (
             <li className="project-item create-btn" onClick={() => setIsCreatingProject(true)}>

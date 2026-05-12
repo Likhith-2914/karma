@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Plus, Calendar as CalIcon, Folder, Edit2 } from 'lucide-react';
 import api from '../api';
+import { Spinner } from './Loader';
 
 const COLUMNS = [
   { id: 'TODO', title: 'To Do' },
@@ -22,17 +23,21 @@ const PROJECT_COLORS = [
 
 const Board = ({ viewMode, activeProjectIds = [], projects, refreshTrigger, onEditTask }) => {
   const [tasks, setTasks] = useState([]);
+  const [isFetchingTasks, setIsFetchingTasks] = useState(false);
 
   useEffect(() => {
     fetchTasks();
   }, [refreshTrigger]);
 
   const fetchTasks = async () => {
+    setIsFetchingTasks(true);
     try {
       const res = await api.get('/tasks');
       setTasks(res.data || []);
     } catch (err) {
       console.error('Failed to fetch tasks', err);
+    } finally {
+      setIsFetchingTasks(false);
     }
   };
 
@@ -120,7 +125,12 @@ const Board = ({ viewMode, activeProjectIds = [], projects, refreshTrigger, onEd
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="board-container">
+      <div className="board-container" style={{ position: 'relative' }}>
+        {isFetchingTasks && (
+          <div className="board-loader-overlay">
+            <Spinner size={48} />
+          </div>
+        )}
         {COLUMNS.map(column => {
           const columnTasks = visibleTasks.filter(t => t.status === column.id);
 
