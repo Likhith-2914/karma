@@ -3,6 +3,7 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Plus, Calendar as CalIcon, Folder, Edit2 } from 'lucide-react';
 import api from '../api';
 import { Spinner } from './Loader';
+import StoryPointsWidget from './StoryPointsWidget';
 
 const COLUMNS = [
   { id: 'TODO', title: 'To Do' },
@@ -125,13 +126,20 @@ const Board = ({ viewMode, activeProjectIds = [], projects, refreshTrigger, onEd
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="board-container" style={{ position: 'relative' }}>
-        {isFetchingTasks && (
-          <div className="board-loader-overlay">
-            <Spinner size={48} />
+      <div className="board-container" style={{ position: 'relative', flexDirection: 'column' }}>
+        {viewMode === 'weekly' && (
+          <div style={{ paddingBottom: '1rem' }}>
+            <StoryPointsWidget tasks={visibleTasks} />
           </div>
         )}
-        {COLUMNS.map(column => {
+        
+        <div style={{ display: 'flex', gap: '1.5rem', overflowX: 'auto', flexGrow: 1 }}>
+          {isFetchingTasks && (
+            <div className="board-loader-overlay">
+              <Spinner size={48} />
+            </div>
+          )}
+          {COLUMNS.map(column => {
           const columnTasks = visibleTasks.filter(t => t.status === column.id);
 
           return (
@@ -206,6 +214,7 @@ const Board = ({ viewMode, activeProjectIds = [], projects, refreshTrigger, onEd
             </div>
           );
         })}
+        </div>
       </div>
     </DragDropContext>
   );
