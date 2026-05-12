@@ -60,6 +60,7 @@ func createTables() {
 		due_date TEXT,
 		project_id INTEGER,
 		user_id INTEGER,
+		position INTEGER DEFAULT 0,
 		FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE SET NULL,
 		FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 	);`
@@ -72,6 +73,11 @@ func createTables() {
 	}
 	if _, err := DB.Exec(taskTable); err != nil {
 		log.Fatalf("Failed to create tasks table: %v", err)
+	}
+
+	// Add position column to existing tables
+	if _, err := DB.Exec("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS position INTEGER DEFAULT 0;"); err != nil {
+		log.Fatalf("Failed to add position column to tasks table: %v", err)
 	}
 
 	log.Println("Database tables initialized successfully")

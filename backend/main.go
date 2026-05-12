@@ -64,6 +64,7 @@ func main() {
 		r.Get("/projects/{projectID}/tasks", handlers.GetTasksHandler)
 		r.Post("/tasks", handlers.CreateTaskHandler)
 		r.Patch("/tasks/{taskID}/status", handlers.UpdateTaskStatusHandler) // PATCH is conventionally used for partial updates
+		r.Put("/tasks/reorder", handlers.ReorderTasksHandler)
 		r.Put("/tasks/{taskID}", handlers.UpdateTaskHandler)
 		r.Delete("/tasks/{taskID}", handlers.DeleteTaskHandler)
 	})

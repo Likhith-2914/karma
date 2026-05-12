@@ -49,20 +49,60 @@ const Board = ({ viewMode, activeProjectIds = [], projects, refreshTrigger, onEd
     if (!destination) return;
     if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
-    const newStatus = destination.droppableId;
-    const taskToMove = tasks.find(t => t.id.toString() === draggableId);
+    const sourceStatus = source.droppableId;
+    const destStatus = destination.droppableId;
+    const taskIdStr = draggableId;
+
+    // Helper to get visible tasks for a column sorted by position
+    const getColumnTasks = (status) => visibleTasks.filter(t => t.status === status).sort((a, b) => (a.position || 0) - (b.position || 0));
+
+    const sourceTasks = getColumnTasks(sourceStatus);
+    const destTasks = sourceStatus === destStatus ? sourceTasks : getColumnTasks(destStatus);
+
+    const taskToMove = tasks.find(t => t.id.toString() === taskIdStr);
     if (!taskToMove) return;
 
-    const updatedTasks = tasks.map(t => 
-      t.id === taskToMove.id ? { ...t, status: newStatus } : t
-    );
+    // Remove from sourceTasks
+    const newSourceTasks = Array.from(sourceTasks);
+    newSourceTasks.splice(source.index, 1);
+
+    // Add to destTasks
+    const newDestTasks = sourceStatus === destStatus ? newSourceTasks : Array.from(destTasks);
+    newDestTasks.splice(destination.index, 0, { ...taskToMove, status: destStatus });
+
+    // Calculate new positions
+    const updates = [];
+    if (sourceStatus === destStatus) {
+      newDestTasks.forEach((t, index) => {
+        t.position = index;
+        updates.push({ id: t.id, status: t.status, position: index });
+      });
+    } else {
+      newSourceTasks.forEach((t, index) => {
+        t.position = index;
+        updates.push({ id: t.id, status: t.status, position: index });
+      });
+      newDestTasks.forEach((t, index) => {
+        t.position = index;
+        updates.push({ id: t.id, status: t.status, position: index });
+      });
+    }
+
+    // Optimistic update
+    const updatedTasks = tasks.map(t => {
+      const update = updates.find(u => u.id === t.id);
+      if (update) {
+        return { ...t, status: update.status, position: update.position };
+      }
+      return t;
+    });
     setTasks(updatedTasks);
 
     try {
-      await api.patch(`/tasks/${taskToMove.id}/status`, { status: newStatus });
+      await api.put('/tasks/reorder', { tasks: updates });
     } catch (err) {
-      console.error('Failed to update task status', err);
-      fetchTasks();
+      console.error('Failed to reorder tasks', err);
+      fetchTasks(); // Revert on failure
     }
   };
 
@@ -140,7 +180,7 @@ const Board = ({ viewMode, activeProjectIds = [], projects, refreshTrigger, onEd
             </div>
           )}
           {COLUMNS.map(column => {
-          const columnTasks = visibleTasks.filter(t => t.status === column.id);
+          const columnTasks = visibleTasks.filter(t => t.status === column.id).sort((a, b) => (a.position || 0) - (b.position || 0));
 
           return (
             <div key={column.id} className="kanban-column">

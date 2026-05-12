@@ -23,4 +23,5 @@ type Task struct {
 	DueDate     string `json:"due_date"`
 	ProjectID   int    `json:"project_id"`
 	UserID      int    `json:"user_id"`
+	Position    int    `json:"position"`
 }

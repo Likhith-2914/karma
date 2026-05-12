@@ -18,7 +18,7 @@ func GetAllTasksHandler(w http.ResponseWriter, r *http.Request) {
 	userIDStr := r.Context().Value("userID").(string)
 	userID, _ := strconv.Atoi(userIDStr)
 
-	rows, err := db.DB.Query("SELECT id, title, description, status, story_points, due_date, project_id, user_id FROM tasks WHERE user_id = $1", userID)
+	rows, err := db.DB.Query("SELECT id, title, description, status, story_points, due_date, project_id, user_id, position FROM tasks WHERE user_id = $1 ORDER BY position ASC, id ASC", userID)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
@@ -30,7 +30,7 @@ func GetAllTasksHandler(w http.ResponseWriter, r *http.Request) {
 		var t models.Task
 		var dueDate sql.NullString
 		var projectID sql.NullInt64
-		if err := rows.Scan(&t.ID, &t.Title, &t.Description, &t.Status, &t.StoryPoints, &dueDate, &projectID, &t.UserID); err != nil {
+		if err := rows.Scan(&t.ID, &t.Title, &t.Description, &t.Status, &t.StoryPoints, &dueDate, &projectID, &t.UserID, &t.Position); err != nil {
 			continue
 		}
 		if dueDate.Valid {
@@ -58,7 +58,7 @@ func GetTasksHandler(w http.ResponseWriter, r *http.Request) {
 	userID, _ := strconv.Atoi(userIDStr)
 	projectID := chi.URLParam(r, "projectID")
 
-	rows, err := db.DB.Query("SELECT id, title, description, status, story_points, due_date, project_id, user_id FROM tasks WHERE project_id = $1 AND user_id = $2", projectID, userID)
+	rows, err := db.DB.Query("SELECT id, title, description, status, story_points, due_date, project_id, user_id, position FROM tasks WHERE project_id = $1 AND user_id = $2 ORDER BY position ASC, id ASC", projectID, userID)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
@@ -70,7 +70,7 @@ func GetTasksHandler(w http.ResponseWriter, r *http.Request) {
 		var t models.Task
 		var dueDate sql.NullString
 		var projectID sql.NullInt64
-		if err := rows.Scan(&t.ID, &t.Title, &t.Description, &t.Status, &t.StoryPoints, &dueDate, &projectID, &t.UserID); err != nil {
+		if err := rows.Scan(&t.ID, &t.Title, &t.Description, &t.Status, &t.StoryPoints, &dueDate, &projectID, &t.UserID, &t.Position); err != nil {
 			continue
 		}
 		if dueDate.Valid {
@@ -118,8 +118,8 @@ func CreateTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	var id int
 	err := db.DB.QueryRow(
-		"INSERT INTO tasks (title, description, status, story_points, due_date, project_id, user_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
-		t.Title, t.Description, t.Status, t.StoryPoints, t.DueDate, dbProjectID, userID,
+		"INSERT INTO tasks (title, description, status, story_points, due_date, project_id, user_id, position) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
+		t.Title, t.Description, t.Status, t.StoryPoints, t.DueDate, dbProjectID, userID, t.Position,
 	).Scan(&id)
 	
 	if err != nil {
@@ -185,8 +185,8 @@ func UpdateTaskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err := db.DB.Exec(
-		"UPDATE tasks SET title = $1, description = $2, status = $3, story_points = $4, due_date = $5, project_id = $6 WHERE id = $7 AND user_id = $8",
-		t.Title, t.Description, t.Status, t.StoryPoints, t.DueDate, dbProjectID, taskID, userID,
+		"UPDATE tasks SET title = $1, description = $2, status = $3, story_points = $4, due_date = $5, project_id = $6, position = $7 WHERE id = $8 AND user_id = $9",
+		t.Title, t.Description, t.Status, t.StoryPoints, t.DueDate, dbProjectID, t.Position, taskID, userID,
 	)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
@@ -213,4 +213,54 @@ func DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Task deleted successfully"})
+}
+
+// ReorderTasksHandler updates the status and position of multiple tasks
+func ReorderTasksHandler(w http.ResponseWriter, r *http.Request) {
+	userIDStr := r.Context().Value("userID").(string)
+	userID, _ := strconv.Atoi(userIDStr)
+
+	var payload struct {
+		Tasks []struct {
+			ID       int    `json:"id"`
+			Status   string `json:"status"`
+			Position int    `json:"position"`
+		} `json:"tasks"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	tx, err := db.DB.Begin()
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	stmt, err := tx.Prepare("UPDATE tasks SET status = $1, position = $2 WHERE id = $3 AND user_id = $4")
+	if err != nil {
+		tx.Rollback()
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+	defer stmt.Close()
+
+	for _, task := range payload.Tasks {
+		if _, err := stmt.Exec(task.Status, task.Position, task.ID, userID); err != nil {
+			tx.Rollback()
+			http.Error(w, "Database error", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Tasks reordered successfully"})
 }
