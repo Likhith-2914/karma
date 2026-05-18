@@ -89,10 +89,18 @@ const Board = ({ viewMode, activeProjectIds = [], projects, refreshTrigger, onEd
     }
 
     // Optimistic update
+    const nowStr = new Date().toISOString();
     const updatedTasks = tasks.map(t => {
       const update = updates.find(u => u.id === t.id);
       if (update) {
-        return { ...t, status: update.status, position: update.position };
+        const isNowCompleted = update.status === 'COMPLETED' && t.status !== 'COMPLETED';
+        const isUncompleted = update.status !== 'COMPLETED';
+        return { 
+          ...t, 
+          status: update.status, 
+          position: update.position,
+          completed_at: isNowCompleted ? nowStr : (isUncompleted ? null : t.completed_at)
+        };
       }
       return t;
     });
@@ -116,9 +124,19 @@ const Board = ({ viewMode, activeProjectIds = [], projects, refreshTrigger, onEd
 
   const getWeekDates = () => {
     if (sprintSettings && sprintSettings.sprint_start_date) {
+      const startOfWeek = new Date(sprintSettings.sprint_start_date);
+      let endOfWeek = new Date(sprintSettings.sprint_end_date);
+      
+      const today = new Date();
+      if (!isSprintActive && today.getDay() === 1) {
+        // Extend old sprint boundary to Monday 23:59:59 so tasks completed today before "Start Sprint" count towards it.
+        endOfWeek = new Date(today);
+        endOfWeek.setHours(23, 59, 59, 999);
+      }
+      
       return {
-        startOfWeek: new Date(sprintSettings.sprint_start_date),
-        endOfWeek: new Date(sprintSettings.sprint_end_date)
+        startOfWeek,
+        endOfWeek
       };
     }
     const today = new Date();
@@ -180,14 +198,17 @@ const Board = ({ viewMode, activeProjectIds = [], projects, refreshTrigger, onEd
     });
   }
 
-  const handleUpdateTarget = async (targetPoints) => {
+  const handleStartSprint = async () => {
     try {
-      await api.post('/settings/sprint', { target_points: targetPoints });
+      const target = sprintSettings?.target_points || 60;
+      await api.post('/settings/sprint', { target_points: target });
       fetchSprintSettings();
     } catch(err) {
-      console.error('Failed to update target', err);
+      console.error('Failed to start sprint', err);
     }
   };
+
+  const isSprintActive = sprintSettings && new Date(sprintSettings.sprint_end_date) > new Date();
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
@@ -197,7 +218,7 @@ const Board = ({ viewMode, activeProjectIds = [], projects, refreshTrigger, onEd
             <StoryPointsWidget 
               tasks={visibleTasks} 
               sprintSettings={sprintSettings} 
-              onStartSprint={handleUpdateTarget} 
+              onTargetUpdate={fetchSprintSettings} 
             />
           </div>
         )}
@@ -284,6 +305,17 @@ const Board = ({ viewMode, activeProjectIds = [], projects, refreshTrigger, onEd
           );
         })}
         </div>
+
+        {viewMode === 'weekly' && !isSprintActive && (
+          <button 
+            className="fab-start-sprint" 
+            onClick={handleStartSprint}
+            title="Start Sprint"
+          >
+            <span className="fab-icon">⚡</span>
+            <span className="fab-text">Start Sprint</span>
+          </button>
+        )}
       </div>
     </DragDropContext>
   );

@@ -26,8 +26,10 @@ const StoryPointsWidget = ({ tasks, sprintSettings, onStartSprint }) => {
 
   const today = new Date();
   const isSunday = today.getDay() === 0;
+  const isMonday = today.getDay() === 1;
 
   const isSprintActive = sprintSettings && new Date(sprintSettings.sprint_end_date) > today;
+  const canEditTarget = isSunday || (isMonday && !isSprintActive);
 
   // Calculate story points
   const points = {
@@ -70,7 +72,7 @@ const StoryPointsWidget = ({ tasks, sprintSettings, onStartSprint }) => {
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <span className="sp-target-value">{points.COMPLETED} / {target} pts</span>
-              {isSunday && (
+              {canEditTarget && (
                 <button onClick={() => setIsEditing(true)} className="icon-btn text-btn" style={{ padding: 0 }} title="Edit Target">
                   <Edit3 size={14} />
                 </button>
@@ -101,24 +103,6 @@ const StoryPointsWidget = ({ tasks, sprintSettings, onStartSprint }) => {
           <span className="sp-label">Total</span>
           <span className="sp-val">{totalPoints}</span>
         </div>
-      </div>
-
-      <div style={{ marginTop: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
-        <button 
-          className="primary-btn" 
-          onClick={() => onStartSprint(parseInt(tempTarget, 10) || 60)}
-          disabled={isSprintActive}
-          style={{ 
-            width: '100%', 
-            opacity: isSprintActive ? 0.5 : 1, 
-            cursor: isSprintActive ? 'not-allowed' : 'pointer',
-            backgroundColor: isSprintActive ? 'var(--bg-primary)' : 'var(--accent-primary)',
-            color: isSprintActive ? 'var(--text-secondary)' : 'white',
-            border: isSprintActive ? '1px solid var(--border-color)' : 'none'
-          }}
-        >
-          {isSprintActive ? 'Sprint Active (Ends Sunday)' : 'Start Sprint'}
-        </button>
       </div>
     </div>
   );

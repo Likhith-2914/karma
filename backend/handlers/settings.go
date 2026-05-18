@@ -65,7 +65,8 @@ func GetSprintSettingsHandler(w http.ResponseWriter, r *http.Request) {
 				startOfWeek := time.Date(now.Year(), now.Month(), now.Day()+offset, 0, 0, 0, 0, now.Location())
 				endOfWeek := startOfWeek.AddDate(0, 0, 6).Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 
-				s.SprintStartDate = startOfWeek.Format(time.RFC3339)
+				actualStart := startOfWeek.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+				s.SprintStartDate = actualStart.Format(time.RFC3339)
 				s.SprintEndDate = endOfWeek.Format(time.RFC3339)
 
 				db.DB.Exec(`
@@ -94,15 +95,16 @@ func StartSprintHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now()
-	// Calculate end of week (Sunday 23:59:59)
-	daysUntilSunday := int(time.Sunday - now.Weekday())
-	if daysUntilSunday < 0 {
-		daysUntilSunday += 7 // If today is Sunday, daysUntilSunday is 0
-	} else if daysUntilSunday == 0 && now.Weekday() != time.Sunday {
-		daysUntilSunday = 7
+	// Calculate start of week (Monday 00:00:00)
+	offset := int(time.Monday - now.Weekday())
+	if offset > 0 {
+		offset -= 7 // If today is Sunday (0), offset becomes -6
 	}
+	startOfWeek := time.Date(now.Year(), now.Month(), now.Day()+offset, 0, 0, 0, 0, now.Location())
 
-	endOfWeek := time.Date(now.Year(), now.Month(), now.Day()+daysUntilSunday, 23, 59, 59, 0, now.Location())
+	// Calculate end of week (Sunday 23:59:59)
+	endOfWeek := startOfWeek.AddDate(0, 0, 6).Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+
 	startDateStr := now.Format(time.RFC3339)
 	endDateStr := endOfWeek.Format(time.RFC3339)
 
