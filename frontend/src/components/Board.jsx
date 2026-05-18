@@ -114,6 +114,8 @@ const Board = ({ viewMode, activeProjectIds = [], projects, refreshTrigger, onEd
     }
   };
 
+  const isSprintActive = sprintSettings && new Date(sprintSettings.sprint_end_date) > new Date();
+
   const isOverdue = (dateStr) => {
     if (!dateStr) return false;
     const today = new Date();
@@ -207,8 +209,6 @@ const Board = ({ viewMode, activeProjectIds = [], projects, refreshTrigger, onEd
       console.error('Failed to start sprint', err);
     }
   };
-
-  const isSprintActive = sprintSettings && new Date(sprintSettings.sprint_end_date) > new Date();
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
