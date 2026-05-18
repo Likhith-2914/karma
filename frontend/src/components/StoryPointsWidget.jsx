@@ -60,7 +60,7 @@ const StoryPointsWidget = ({ tasks, sprintSettings, onStartSprint }) => {
             <button 
               className="primary-btn btn-small" 
               style={{ marginLeft: '1rem', padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
-              onClick={handleStartSprint}
+              onClick={() => onStartSprint(parseInt(tempTarget, 10) || 60)}
             >
               Start Sprint
             </button>
