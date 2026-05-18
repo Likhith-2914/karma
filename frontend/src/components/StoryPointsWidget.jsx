@@ -27,6 +27,8 @@ const StoryPointsWidget = ({ tasks, sprintSettings, onStartSprint }) => {
   const today = new Date();
   const isSunday = today.getDay() === 0;
 
+  const isSprintActive = sprintSettings && new Date(sprintSettings.sprint_end_date) > today;
+
   // Calculate story points
   const points = {
     TODO: 0,
@@ -99,6 +101,24 @@ const StoryPointsWidget = ({ tasks, sprintSettings, onStartSprint }) => {
           <span className="sp-label">Total</span>
           <span className="sp-val">{totalPoints}</span>
         </div>
+      </div>
+
+      <div style={{ marginTop: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+        <button 
+          className="primary-btn" 
+          onClick={() => onStartSprint(parseInt(tempTarget, 10) || 60)}
+          disabled={isSprintActive}
+          style={{ 
+            width: '100%', 
+            opacity: isSprintActive ? 0.5 : 1, 
+            cursor: isSprintActive ? 'not-allowed' : 'pointer',
+            backgroundColor: isSprintActive ? 'var(--bg-primary)' : 'var(--accent-primary)',
+            color: isSprintActive ? 'var(--text-secondary)' : 'white',
+            border: isSprintActive ? '1px solid var(--border-color)' : 'none'
+          }}
+        >
+          {isSprintActive ? 'Sprint Active (Ends Sunday)' : 'Start Sprint'}
+        </button>
       </div>
     </div>
   );

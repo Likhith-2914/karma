@@ -21,7 +21,6 @@ func GetSprintSettingsHandler(w http.ResponseWriter, r *http.Request) {
 		Scan(&startDate, &endDate, &s.TargetPoints)
 
 	if err == sql.ErrNoRows {
-		// Default to current week if no sprint exists
 		now := time.Now()
 		offset := int(time.Monday - now.Weekday())
 		if offset > 0 {
@@ -29,6 +28,12 @@ func GetSprintSettingsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		startOfWeek := time.Date(now.Year(), now.Month(), now.Day()+offset, 0, 0, 0, 0, now.Location())
 		endOfWeek := startOfWeek.AddDate(0, 0, 6).Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+
+		if now.Weekday() == time.Monday {
+			// On Monday, default to previous week if not started
+			startOfWeek = startOfWeek.AddDate(0, 0, -7)
+			endOfWeek = endOfWeek.AddDate(0, 0, -7)
+		}
 
 		s = models.UserSettings{
 			UserID:          userID,
@@ -46,6 +51,29 @@ func GetSprintSettingsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		if endDate.Valid {
 			s.SprintEndDate = endDate.String
+		}
+
+		// Auto-start sprint if it is Tuesday or later and current sprint is expired
+		now := time.Now()
+		if endDate.Valid {
+			t, _ := time.Parse(time.RFC3339, endDate.String)
+			if now.After(t) && now.Weekday() != time.Monday {
+				offset := int(time.Monday - now.Weekday())
+				if offset > 0 {
+					offset -= 7
+				}
+				startOfWeek := time.Date(now.Year(), now.Month(), now.Day()+offset, 0, 0, 0, 0, now.Location())
+				endOfWeek := startOfWeek.AddDate(0, 0, 6).Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+
+				s.SprintStartDate = startOfWeek.Format(time.RFC3339)
+				s.SprintEndDate = endOfWeek.Format(time.RFC3339)
+
+				db.DB.Exec(`
+					UPDATE user_settings 
+					SET sprint_start_date = $1, sprint_end_date = $2 
+					WHERE user_id = $3
+				`, s.SprintStartDate, s.SprintEndDate, userID)
+			}
 		}
 	}
 

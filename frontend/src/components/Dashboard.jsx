@@ -140,19 +140,6 @@ const Dashboard = ({ setAuth }) => {
     return 'Kanban Board';
   };
 
-  const handleStartSprint = async () => {
-    try {
-      const target = sprintSettings?.target_points || 60;
-      await api.post('/settings/sprint', { target_points: target });
-      fetchSprintSettings();
-    } catch(err) {
-      console.error('Failed to start sprint', err);
-    }
-  };
-
-  const today = new Date();
-  const isSprintActive = sprintSettings && new Date(sprintSettings.sprint_end_date) > today;
-
   return (
     <div className="dashboard-container">
       {/* Sidebar */}
@@ -240,15 +227,6 @@ const Dashboard = ({ setAuth }) => {
             {getNavTitle()}
           </div>
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            <button 
-              className="primary-btn btn-small flex-center" 
-              onClick={handleStartSprint}
-              disabled={isSprintActive}
-              style={{ opacity: isSprintActive ? 0.5 : 1, cursor: isSprintActive ? 'not-allowed' : 'pointer' }}
-              title={isSprintActive ? "Sprint is already active" : "Start a new sprint for this week"}
-            >
-              Start Sprint
-            </button>
             <button className="primary-btn btn-small flex-center" onClick={handleOpenCreateModal}>
               <Plus size={16} /> Create Task
             </button>

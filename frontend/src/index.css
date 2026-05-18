@@ -265,8 +265,9 @@ body {
 
 /* Kanban Columns */
 .kanban-column {
-  width: 300px;
-  min-width: 300px;
+  min-width: 250px;
+  max-width: 350px;
+  flex: 1;
   background-color: var(--bg-secondary);
   border-radius: 0.5rem;
   display: flex;
@@ -382,6 +383,7 @@ body {
 .btn-small {
   padding: 0.25rem 0.75rem;
   font-size: 0.875rem;
+  white-space: nowrap;
 }
 
 .flex-center {
