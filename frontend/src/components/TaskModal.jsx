@@ -45,7 +45,8 @@ const TaskModal = ({ isOpen, onClose, task, projects, onSave }) => {
       status,
       story_points: parseInt(storyPoints) || 0,
       due_date: dueDate,
-      project_id: parseInt(projectId) || 0
+      project_id: parseInt(projectId) || 0,
+      position: task ? task.position : 0 // Preserve position if editing
     };
 
     try {

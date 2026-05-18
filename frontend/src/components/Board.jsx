@@ -25,10 +25,23 @@ const PROJECT_COLORS = [
 const Board = ({ viewMode, activeProjectIds = [], projects, refreshTrigger, onEditTask }) => {
   const [tasks, setTasks] = useState([]);
   const [isFetchingTasks, setIsFetchingTasks] = useState(false);
+  const [sprintSettings, setSprintSettings] = useState(null);
 
   useEffect(() => {
     fetchTasks();
-  }, [refreshTrigger]);
+    if (viewMode === 'weekly') {
+      fetchSprintSettings();
+    }
+  }, [refreshTrigger, viewMode]);
+
+  const fetchSprintSettings = async () => {
+    try {
+      const res = await api.get('/settings/sprint');
+      setSprintSettings(res.data);
+    } catch (err) {
+      console.error('Failed to fetch sprint settings', err);
+    }
+  };
 
   const fetchTasks = async () => {
     setIsFetchingTasks(true);
@@ -115,6 +128,12 @@ const Board = ({ viewMode, activeProjectIds = [], projects, refreshTrigger, onEd
   };
 
   const getWeekDates = () => {
+    if (sprintSettings && sprintSettings.sprint_start_date) {
+      return {
+        startOfWeek: new Date(sprintSettings.sprint_start_date),
+        endOfWeek: new Date(sprintSettings.sprint_end_date)
+      };
+    }
     const today = new Date();
     const day = today.getDay(); // 0 is Sunday, 1 is Monday...
     
@@ -150,6 +169,16 @@ const Board = ({ viewMode, activeProjectIds = [], projects, refreshTrigger, onEd
     visibleTasks = tasks.filter(t => activeProjectIds.includes(t.project_id));
   } else if (viewMode === 'weekly') {
     visibleTasks = tasks.filter(t => {
+      // Completed tasks must be completed within the sprint
+      if (t.status === 'COMPLETED') {
+        if (!t.completed_at) return false;
+        const cDate = new Date(t.completed_at);
+        return cDate >= startOfWeek && cDate <= endOfWeek;
+      }
+      // Cancelled tasks hidden from weekly board
+      if (t.status === 'CANCELLED') return false;
+
+      // Unfinished tasks
       if (!t.due_date) return false;
       const d = new Date(t.due_date);
       const isThisWeek = d >= startOfWeek && d <= endOfWeek;
@@ -164,12 +193,25 @@ const Board = ({ viewMode, activeProjectIds = [], projects, refreshTrigger, onEd
     });
   }
 
+  const handleStartSprint = async (targetPoints) => {
+    try {
+      await api.post('/settings/sprint', { target_points: targetPoints });
+      fetchSprintSettings();
+    } catch(err) {
+      console.error('Failed to start sprint', err);
+    }
+  };
+
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="board-container" style={{ position: 'relative', flexDirection: 'column' }}>
         {viewMode === 'weekly' && (
           <div style={{ paddingBottom: '1rem' }}>
-            <StoryPointsWidget tasks={visibleTasks} />
+            <StoryPointsWidget 
+              tasks={visibleTasks} 
+              sprintSettings={sprintSettings} 
+              onStartSprint={handleStartSprint} 
+            />
           </div>
         )}
         

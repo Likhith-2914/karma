@@ -24,4 +24,12 @@ type Task struct {
 	ProjectID   int    `json:"project_id"`
 	UserID      int    `json:"user_id"`
 	Position    int    `json:"position"`
+	CompletedAt string `json:"completed_at"`
+}
+
+type UserSettings struct {
+	UserID          int    `json:"user_id"`
+	SprintStartDate string `json:"sprint_start_date"`
+	SprintEndDate   string `json:"sprint_end_date"`
+	TargetPoints    int    `json:"target_points"`
 }

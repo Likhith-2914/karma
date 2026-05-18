@@ -67,6 +67,10 @@ func main() {
 		r.Put("/tasks/reorder", handlers.ReorderTasksHandler)
 		r.Put("/tasks/{taskID}", handlers.UpdateTaskHandler)
 		r.Delete("/tasks/{taskID}", handlers.DeleteTaskHandler)
+
+		// Settings
+		r.Get("/settings/sprint", handlers.GetSprintSettingsHandler)
+		r.Post("/settings/sprint", handlers.StartSprintHandler)
 	})
 
 	// 5. Start the Server

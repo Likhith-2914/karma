@@ -18,7 +18,7 @@ func GetAllTasksHandler(w http.ResponseWriter, r *http.Request) {
 	userIDStr := r.Context().Value("userID").(string)
 	userID, _ := strconv.Atoi(userIDStr)
 
-	rows, err := db.DB.Query("SELECT id, title, description, status, story_points, due_date, project_id, user_id, position FROM tasks WHERE user_id = $1 ORDER BY position ASC, id ASC", userID)
+	rows, err := db.DB.Query("SELECT id, title, description, status, story_points, due_date, project_id, user_id, position, completed_at FROM tasks WHERE user_id = $1 ORDER BY position ASC, id ASC", userID)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
@@ -30,7 +30,8 @@ func GetAllTasksHandler(w http.ResponseWriter, r *http.Request) {
 		var t models.Task
 		var dueDate sql.NullString
 		var projectID sql.NullInt64
-		if err := rows.Scan(&t.ID, &t.Title, &t.Description, &t.Status, &t.StoryPoints, &dueDate, &projectID, &t.UserID, &t.Position); err != nil {
+		var completedAt sql.NullString
+		if err := rows.Scan(&t.ID, &t.Title, &t.Description, &t.Status, &t.StoryPoints, &dueDate, &projectID, &t.UserID, &t.Position, &completedAt); err != nil {
 			continue
 		}
 		if dueDate.Valid {
@@ -40,6 +41,9 @@ func GetAllTasksHandler(w http.ResponseWriter, r *http.Request) {
 			t.ProjectID = int(projectID.Int64)
 		} else {
 			t.ProjectID = 0
+		}
+		if completedAt.Valid {
+			t.CompletedAt = completedAt.String
 		}
 		tasks = append(tasks, t)
 	}
@@ -58,7 +62,7 @@ func GetTasksHandler(w http.ResponseWriter, r *http.Request) {
 	userID, _ := strconv.Atoi(userIDStr)
 	projectID := chi.URLParam(r, "projectID")
 
-	rows, err := db.DB.Query("SELECT id, title, description, status, story_points, due_date, project_id, user_id, position FROM tasks WHERE project_id = $1 AND user_id = $2 ORDER BY position ASC, id ASC", projectID, userID)
+	rows, err := db.DB.Query("SELECT id, title, description, status, story_points, due_date, project_id, user_id, position, completed_at FROM tasks WHERE project_id = $1 AND user_id = $2 ORDER BY position ASC, id ASC", projectID, userID)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
@@ -70,7 +74,8 @@ func GetTasksHandler(w http.ResponseWriter, r *http.Request) {
 		var t models.Task
 		var dueDate sql.NullString
 		var projectID sql.NullInt64
-		if err := rows.Scan(&t.ID, &t.Title, &t.Description, &t.Status, &t.StoryPoints, &dueDate, &projectID, &t.UserID, &t.Position); err != nil {
+		var completedAt sql.NullString
+		if err := rows.Scan(&t.ID, &t.Title, &t.Description, &t.Status, &t.StoryPoints, &dueDate, &projectID, &t.UserID, &t.Position, &completedAt); err != nil {
 			continue
 		}
 		if dueDate.Valid {
@@ -80,6 +85,9 @@ func GetTasksHandler(w http.ResponseWriter, r *http.Request) {
 			t.ProjectID = int(projectID.Int64)
 		} else {
 			t.ProjectID = 0
+		}
+		if completedAt.Valid {
+			t.CompletedAt = completedAt.String
 		}
 		tasks = append(tasks, t)
 	}
@@ -116,10 +124,21 @@ func CreateTaskHandler(w http.ResponseWriter, r *http.Request) {
 		dbProjectID = nil
 	}
 
+	var maxPos int
+	err := db.DB.QueryRow("SELECT COALESCE(MAX(position), -1) FROM tasks WHERE user_id = $1 AND status = $2", userID, t.Status).Scan(&maxPos)
+	if err == nil {
+		t.Position = maxPos + 1
+	}
+
+	var completedAt interface{} = nil
+	if t.Status == "COMPLETED" {
+		completedAt = time.Now().Format(time.RFC3339)
+	}
+
 	var id int
-	err := db.DB.QueryRow(
-		"INSERT INTO tasks (title, description, status, story_points, due_date, project_id, user_id, position) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
-		t.Title, t.Description, t.Status, t.StoryPoints, t.DueDate, dbProjectID, userID, t.Position,
+	err = db.DB.QueryRow(
+		"INSERT INTO tasks (title, description, status, story_points, due_date, project_id, user_id, position, completed_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id",
+		t.Title, t.Description, t.Status, t.StoryPoints, t.DueDate, dbProjectID, userID, t.Position, completedAt,
 	).Scan(&id)
 	
 	if err != nil {
@@ -149,7 +168,12 @@ func UpdateTaskStatusHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := db.DB.Exec("UPDATE tasks SET status = $1 WHERE id = $2 AND user_id = $3", payload.Status, taskID, userID)
+	var completedAt interface{} = nil
+	if payload.Status == "COMPLETED" {
+		completedAt = time.Now().Format(time.RFC3339)
+	}
+
+	_, err := db.DB.Exec("UPDATE tasks SET status = $1, completed_at = $2 WHERE id = $3 AND user_id = $4", payload.Status, completedAt, taskID, userID)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
@@ -184,9 +208,14 @@ func UpdateTaskHandler(w http.ResponseWriter, r *http.Request) {
 		dbProjectID = nil
 	}
 
+	var completedAt interface{} = nil
+	if t.Status == "COMPLETED" {
+		completedAt = time.Now().Format(time.RFC3339)
+	}
+
 	_, err := db.DB.Exec(
-		"UPDATE tasks SET title = $1, description = $2, status = $3, story_points = $4, due_date = $5, project_id = $6, position = $7 WHERE id = $8 AND user_id = $9",
-		t.Title, t.Description, t.Status, t.StoryPoints, t.DueDate, dbProjectID, t.Position, taskID, userID,
+		"UPDATE tasks SET title = $1, description = $2, status = $3, story_points = $4, due_date = $5, project_id = $6, position = $7, completed_at = COALESCE($8, completed_at) WHERE id = $9 AND user_id = $10",
+		t.Title, t.Description, t.Status, t.StoryPoints, t.DueDate, dbProjectID, t.Position, completedAt, taskID, userID,
 	)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
@@ -239,7 +268,15 @@ func ReorderTasksHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stmt, err := tx.Prepare("UPDATE tasks SET status = $1, position = $2 WHERE id = $3 AND user_id = $4")
+	stmt, err := tx.Prepare(`
+		UPDATE tasks 
+		SET status = $1, 
+			position = $2,
+			completed_at = CASE WHEN $1 = 'COMPLETED' AND status != 'COMPLETED' THEN $3 
+								WHEN $1 != 'COMPLETED' THEN NULL 
+								ELSE completed_at END
+		WHERE id = $4 AND user_id = $5
+	`)
 	if err != nil {
 		tx.Rollback()
 		http.Error(w, "Database error", http.StatusInternalServerError)
@@ -247,8 +284,10 @@ func ReorderTasksHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer stmt.Close()
 
+	nowStr := time.Now().Format(time.RFC3339)
+
 	for _, task := range payload.Tasks {
-		if _, err := stmt.Exec(task.Status, task.Position, task.ID, userID); err != nil {
+		if _, err := stmt.Exec(task.Status, task.Position, nowStr, task.ID, userID); err != nil {
 			tx.Rollback()
 			http.Error(w, "Database error", http.StatusInternalServerError)
 			return
