@@ -25,13 +25,7 @@ const StoryPointsWidget = ({ tasks, sprintSettings, onStartSprint }) => {
   };
 
   const today = new Date();
-  const isMonday = today.getDay() === 1;
   const isSunday = today.getDay() === 0;
-  
-  const isSprintActive = sprintSettings && new Date(sprintSettings.sprint_end_date) > today;
-  // If it's Monday and the current active sprint from the database ended yesterday (or before), 
-  // it means they haven't started this week's sprint yet.
-  const canStartSprint = isMonday && (!isSprintActive);
 
   // Calculate story points
   const points = {
@@ -56,15 +50,6 @@ const StoryPointsWidget = ({ tasks, sprintSettings, onStartSprint }) => {
         <div className="sp-title">
           {isGoalReached ? <Trophy size={18} className="trophy-icon" /> : <Target size={18} />}
           <span>Weekly Target</span>
-          {canStartSprint && (
-            <button 
-              className="primary-btn btn-small" 
-              style={{ marginLeft: '1rem', padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
-              onClick={() => onStartSprint(parseInt(tempTarget, 10) || 60)}
-            >
-              Start Sprint
-            </button>
-          )}
         </div>
         <div className="sp-target-control">
           {isEditing ? (
@@ -83,7 +68,7 @@ const StoryPointsWidget = ({ tasks, sprintSettings, onStartSprint }) => {
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <span className="sp-target-value">{points.COMPLETED} / {target} pts</span>
-              {(isSunday || canStartSprint) && (
+              {isSunday && (
                 <button onClick={() => setIsEditing(true)} className="icon-btn text-btn" style={{ padding: 0 }} title="Edit Target">
                   <Edit3 size={14} />
                 </button>

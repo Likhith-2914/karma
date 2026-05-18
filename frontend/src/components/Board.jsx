@@ -22,26 +22,13 @@ const PROJECT_COLORS = [
   '#6554C0', // Purple
 ];
 
-const Board = ({ viewMode, activeProjectIds = [], projects, refreshTrigger, onEditTask }) => {
+const Board = ({ viewMode, activeProjectIds = [], projects, refreshTrigger, onEditTask, sprintSettings, fetchSprintSettings }) => {
   const [tasks, setTasks] = useState([]);
   const [isFetchingTasks, setIsFetchingTasks] = useState(false);
-  const [sprintSettings, setSprintSettings] = useState(null);
 
   useEffect(() => {
     fetchTasks();
-    if (viewMode === 'weekly') {
-      fetchSprintSettings();
-    }
   }, [refreshTrigger, viewMode]);
-
-  const fetchSprintSettings = async () => {
-    try {
-      const res = await api.get('/settings/sprint');
-      setSprintSettings(res.data);
-    } catch (err) {
-      console.error('Failed to fetch sprint settings', err);
-    }
-  };
 
   const fetchTasks = async () => {
     setIsFetchingTasks(true);
@@ -193,12 +180,12 @@ const Board = ({ viewMode, activeProjectIds = [], projects, refreshTrigger, onEd
     });
   }
 
-  const handleStartSprint = async (targetPoints) => {
+  const handleUpdateTarget = async (targetPoints) => {
     try {
       await api.post('/settings/sprint', { target_points: targetPoints });
       fetchSprintSettings();
     } catch(err) {
-      console.error('Failed to start sprint', err);
+      console.error('Failed to update target', err);
     }
   };
 
@@ -210,7 +197,7 @@ const Board = ({ viewMode, activeProjectIds = [], projects, refreshTrigger, onEd
             <StoryPointsWidget 
               tasks={visibleTasks} 
               sprintSettings={sprintSettings} 
-              onStartSprint={handleStartSprint} 
+              onStartSprint={handleUpdateTarget} 
             />
           </div>
         )}
